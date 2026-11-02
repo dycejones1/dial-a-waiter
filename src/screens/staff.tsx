@@ -1,6 +1,6 @@
 // Logged-in staff screens: home, find jobs, shift detail, applications, account.
 import { useEffect, useMemo, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
 import { useSession } from '../lib/session'
 import { km, prettyPhone, profileChecklist, rands, shiftDay, shiftHours, shiftTime } from '../lib/format'
 import type { Application, Shift } from '../lib/types'
@@ -67,6 +67,10 @@ export function Home() {
               <span style={{ flex: 1 }}><b>Finish your work profile</b><small>Next: {left[0].label.toLowerCase()} · {left.length} left</small></span>
               <Icon name="chev" size={20} />
             </Link>
+          )}
+          {profile?.rtw_status === 'rejected' && (
+            <Link className="banner" to="/join/documents" style={{ marginTop: 12, background: 'var(--acc-bg)' }}><Icon name="shield" size={20} />
+              <span><b>We couldn’t accept your ID.</b> {profile.rtw_note ? `${profile.rtw_note}. ` : ''}Tap to upload it again.</span></Link>
           )}
           {profile?.rtw_status === 'pending' && <div className="banner" style={{ marginTop: 12 }}><Icon name="clock" size={20} /><span>We’re checking your ID. This usually takes one working day.</span></div>}
           <div className="qa">
@@ -209,6 +213,7 @@ export function Account() {
   const nav = useNavigate()
   if (!profile) return <Spinner />
   if (profile.role === 'employer') return <EmployerAccount />
+  if (profile.role === 'admin') return <Navigate to="/admin" replace />
   const items = profileChecklist(profile)
   const rtw = { not_submitted: ['To do', 'acc'], pending: ['Checking', 'warn'], verified: ['Verified', 'ok'], rejected: ['Please resubmit', 'acc'] }[profile.rtw_status]
   return (

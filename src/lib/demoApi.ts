@@ -1,6 +1,6 @@
 // Demo mode: the whole app runs in the browser with sample data. Any code is "123456".
 // Used for demos and for trying the app before Supabase is set up. Nothing leaves the device.
-import type { Api, Applicant, Application, Profile, Shift, Venue, VenueShift } from './types'
+import type { AdminVenue, Api, Applicant, Application, IdCheck, Profile, Shift, Venue, VenueShift } from './types'
 import { distanceKm } from './format'
 
 export const DEMO_CODE = '123456'
@@ -25,6 +25,18 @@ const PEOPLE: Applicant['staff'][] = [
   { id: 'p3', firstName: 'Lindiwe', lastName: 'N.', photoPath: null, positions: ['Cleaner', 'Dishwasher'], rtwStatus: 'pending' }
 ]
 
+const ago = (h: number) => new Date(Date.now() - h * 36e5).toISOString()
+const DEMO_VENUES: AdminVenue[] = [
+  { id: 'dv1', kind: 'business', name: 'Sample Rooftop Bar', area: 'De Waterkant', approved: false, createdAt: ago(3), owner: { firstName: 'Naledi', lastName: 'K.', phone: '+27821110001', email: 'naledi@example.com' } },
+  { id: 'dv2', kind: 'private', name: 'Sipho’s 40th', area: 'Constantia', approved: false, createdAt: ago(20), owner: { firstName: 'Sipho', lastName: 'D.', phone: '+27821110002', email: null } },
+  { id: 'dv3', kind: 'business', name: 'Sample Bistro', area: 'Woodstock', approved: true, createdAt: ago(240), owner: { firstName: 'Lee', lastName: 'P.', phone: '+27821110003', email: 'lee@example.com' } }
+]
+const DEMO_IDS: IdCheck[] = [
+  { id: 'di1', firstName: 'Thabo', lastName: 'Mokoena', phone: '+27831110001', photoPath: null, cvPath: 'demo/cv.pdf', rtwStatus: 'pending', rtwNote: null, submittedAt: ago(2), nationality: 'South African', idNumber: '8001015009087', idDocPath: null },
+  { id: 'di2', firstName: 'Tendai', lastName: 'Moyo', phone: '+27831110002', photoPath: null, cvPath: null, rtwStatus: 'pending', rtwNote: null, submittedAt: ago(9), nationality: 'Zimbabwean', idNumber: 'FN123456', idDocPath: null },
+  { id: 'di3', firstName: 'Aisha', lastName: 'Khan', phone: '+27831110003', photoPath: null, cvPath: null, rtwStatus: 'pending', rtwNote: null, submittedAt: ago(26), nationality: 'South African', idNumber: '8001015009088', idDocPath: null }
+]
+
 interface Posted { id: string; role: string; startsAt: string; endsAt: string; payCents: number; description: string | null; bring: string[]; status: VenueShift['status'] }
 interface Store {
   userId: string | null
@@ -34,8 +46,10 @@ interface Store {
   venue: Venue | null
   posted: Posted[]
   applicants: Record<string, { id: string; personId: string; status: Applicant['status']; createdAt: string }[]>
+  adminVenues: AdminVenue[]
+  adminIds: IdCheck[]
 }
-const empty = (): Store => ({ userId: null, profile: null, applications: [], pending: null, venue: null, posted: [], applicants: {} })
+const empty = (): Store => ({ userId: null, profile: null, applications: [], pending: null, venue: null, posted: [], applicants: {}, adminVenues: DEMO_VENUES, adminIds: DEMO_IDS })
 
 function load(): Store {
   try { const s = sessionStorage.getItem(KEY); if (s) return { ...empty(), ...JSON.parse(s) } } catch { /* storage unavailable */ }
@@ -137,6 +151,22 @@ export function createDemoApi(): Api {
       await wait()
       for (const list of Object.values(st.applicants)) { const a = list.find(x => x.id === applicationId); if (a) a.status = status }
       save()
+    },
+
+    // ---------- Dial A Waiter team ----------
+    async adminVenues(approved) { await wait(150); return st.adminVenues.filter(v => v.approved === approved) },
+    async adminSetVenue(venueId, approved) { await wait(); const v = st.adminVenues.find(x => x.id === venueId); if (v) { v.approved = approved; save() } },
+    async adminIdChecks(status) { await wait(150); return st.adminIds.filter(p => p.rtwStatus === status) },
+    async adminIdCheck(id) { return st.adminIds.find(p => p.id === id) ?? null },
+    async adminSetRtw(id, status, note) {
+      await wait()
+      if (status === 'rejected' && !note?.trim()) throw new Error('Add a note so the person knows what to fix')
+      const p = st.adminIds.find(x => x.id === id); if (p) { p.rtwStatus = status; p.rtwNote = status === 'rejected' ? note ?? null : null; save() }
+    },
+    async demoSignInAsAdmin() {
+      st.profile = { id: 'demo-admin', role: 'admin', first_name: 'Team', last_name: null, gender: null, date_of_birth: null, email: null, phone: '+27830000000',
+        confirmed_by: 'sms', photo_path: null, address: null, lat: null, lng: null, travel_km: 10, positions: [], cv_path: null, rtw_status: 'not_submitted', onboarded_at: null }
+      st.userId = 'demo-admin'; save(); listeners.forEach(l => l(st.userId))
     }
   }
 }

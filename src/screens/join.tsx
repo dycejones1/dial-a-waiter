@@ -17,7 +17,8 @@ function useNext(next: string) {
 }
 
 export function Welcome() {
-  const { userId, profile } = useSession()
+  const { userId, profile, api, refresh } = useSession()
+  const nav = useNavigate()
   if (userId && profile) return <Navigate to={homeFor(profile)} replace />
   return (
     <div className="wel">
@@ -29,6 +30,10 @@ export function Welcome() {
         <Link className="btn pri" to="/join/register">I need work</Link>
         <Link className="btn light" to="/venue/start">I need staff</Link>
         <p className="center" style={{ margin: '6px 0 0' }}>Already a member? <Link to="/login" style={{ color: '#fff', fontWeight: 600 }}>Log in</Link></p>
+        {api.demoSignInAsAdmin && (
+          <button className="link" style={{ color: 'rgba(255,255,255,.75)', fontSize: 13, alignSelf: 'center' }}
+            onClick={async () => { await api.demoSignInAsAdmin!(); await refresh(); nav('/admin') }}>Dial A Waiter team login (demo)</button>
+        )}
       </div>
     </div>
   )

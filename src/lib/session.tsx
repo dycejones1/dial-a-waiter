@@ -18,6 +18,7 @@ const emptyDraft: SignupDraft = { firstName: '', lastName: '', gender: '', dateO
 /** Where someone lands after logging in. */
 export function homeFor(p: Profile | null): string {
   if (!p) return '/'
+  if (p.role === 'admin') return '/admin'
   if (p.role === 'employer') return '/venue'
   return p.onboarded_at ? '/home' : '/join/address'
 }

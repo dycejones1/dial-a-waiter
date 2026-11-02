@@ -17,7 +17,7 @@ export interface SignupDraft {
 
 export interface Profile {
   id: string
-  role: 'staff' | 'employer'
+  role: 'staff' | 'employer' | 'admin'
   first_name: string
   last_name: string | null
   gender: string | null
@@ -33,10 +33,11 @@ export interface Profile {
   positions: string[]
   cv_path: string | null
   rtw_status: RtwStatus
+  rtw_note?: string | null
   onboarded_at: string | null
 }
 
-export type ProfilePatch = Partial<Omit<Profile, 'id' | 'role' | 'rtw_status'>>
+export type ProfilePatch = Partial<Omit<Profile, 'id' | 'role' | 'rtw_status' | 'rtw_note'>>
 
 export interface Shift {
   id: string
@@ -99,6 +100,31 @@ export interface Applicant {
   staff: { id: string; firstName: string; lastName: string | null; photoPath: string | null; positions: string[]; rtwStatus: RtwStatus }
 }
 
+export interface AdminVenue {
+  id: string
+  kind: 'business' | 'private'
+  name: string
+  area: string | null
+  approved: boolean
+  createdAt: string
+  owner: { firstName: string; lastName: string | null; phone: string | null; email: string | null }
+}
+
+export interface IdCheck {
+  id: string
+  firstName: string
+  lastName: string | null
+  phone: string | null
+  photoPath: string | null
+  cvPath: string | null
+  rtwStatus: RtwStatus
+  rtwNote: string | null
+  submittedAt: string
+  nationality: string | null
+  idNumber: string | null
+  idDocPath: string | null
+}
+
 export interface Api {
   readonly mode: 'demo' | 'live'
   currentUserId(): Promise<string | null>
@@ -124,4 +150,12 @@ export interface Api {
   setShiftStatus(shiftId: string, status: ShiftStatus): Promise<void>
   shiftApplicants(shiftId: string): Promise<Applicant[]>
   setApplicationStatus(applicationId: string, status: 'shortlisted' | 'booked' | 'declined'): Promise<void>
+  // Dial A Waiter team (admin)
+  adminVenues(approved: boolean): Promise<AdminVenue[]>
+  adminSetVenue(venueId: string, approved: boolean, note?: string): Promise<void>
+  adminIdChecks(status: RtwStatus): Promise<IdCheck[]>
+  adminIdCheck(profileId: string): Promise<IdCheck | null>
+  adminSetRtw(profileId: string, status: 'verified' | 'rejected', note?: string): Promise<void>
+  /** Demo mode only: sign in as a team member to try the admin screens. */
+  demoSignInAsAdmin?(): Promise<void>
 }

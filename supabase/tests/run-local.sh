@@ -11,5 +11,5 @@ trap '"$BIN/pg_ctl" -D "$DIR" -m immediate stop >/dev/null 2>&1 || true; rm -rf 
 P="psql -X -q -h $DIR -p $PORT -U postgres -v ON_ERROR_STOP=1"
 $P -c 'create database daw' >/dev/null
 $P -d daw -f stubs.sql >/dev/null
-$P -d daw -f ../migrations/20261102000000_init.sql >/dev/null
+for f in ../migrations/*.sql; do $P -d daw -f "$f" >/dev/null; done
 $P -t -d daw -f rls_test.sql 2>&1 | sed 's/^psql:[^ ]* NOTICE:  //' | grep -E '^(ok|ALL|.*ERROR|.*FAIL)'

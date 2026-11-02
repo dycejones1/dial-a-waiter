@@ -3,6 +3,7 @@
 \set A '''aaaaaaaa-0000-0000-0000-000000000001'''
 \set B '''bbbbbbbb-0000-0000-0000-000000000002'''
 \set C '''cccccccc-0000-0000-0000-000000000003'''
+\set M '''dddddddd-0000-0000-0000-000000000004'''
 
 create or replace function pg_temp.expect_fail(q text, why text) returns void language plpgsql as $$
 begin
@@ -16,6 +17,9 @@ begin if not cond then raise exception 'FAIL: %', why; end if; raise notice 'ok 
 insert into auth.users values (:A, null, '+27830000001', '{"first_name":"Matthew","last_name":"Mbuso"}');
 insert into auth.users values (:B, 'owner@potluck.test', '+27830000002', '{"first_name":"Lee","role":"employer"}');
 insert into auth.users values (:C, null, '+27830000003', '{"first_name":"Aisha"}');
+insert into auth.users values (:M, 'manager@dialawaiter.test', '+27830000004', '{"first_name":"Team","role":"admin"}');
+select pg_temp.expect((select role from profiles where id = :M) = 'staff', 'signing up cannot make you an admin');
+update profiles set role = 'admin' where id = :M;  -- done by the project owner
 select pg_temp.expect((select role from profiles where id = :A) = 'staff' and (select first_name from profiles where id = :A) = 'Matthew', 'sign-up creates a staff profile from metadata');
 select pg_temp.expect((select role from profiles where id = :B) = 'employer', 'employer sign-up gets the employer role');
 
@@ -40,9 +44,30 @@ update profiles set address = '15 Alfred Street, Observatory', lat = -33.938, ln
 insert into staff_private (id, nationality, id_number) values (:A, 'South African', '9804125800087');
 select pg_temp.expect((select rtw_status from profiles where id = auth.uid()) = 'pending', 'submitting ID moves status to pending');
 
--- Account manager approves the venue (service role)
-reset role; select set_config('request.jwt.claim.sub', '', false);
-update venues set approved = true where id = '11111111-0000-0000-0000-00000000000a';
+-- Only the team can approve
+select pg_temp.expect_fail($$select admin_set_venue_approval('11111111-0000-0000-0000-00000000000a', true)$$, 'staff cannot call the approve function');
+select pg_temp.expect_fail($$select admin_set_rtw('aaaaaaaa-0000-0000-0000-000000000001', 'verified')$$, 'staff cannot verify IDs with the team function');
+select set_config('request.jwt.claim.sub', :B, false);
+select pg_temp.expect_fail($$select admin_set_venue_approval('11111111-0000-0000-0000-00000000000a', true)$$, 'employers cannot approve themselves via the function');
+select pg_temp.expect((select count(*) from admin_actions) = 0, 'non-admins cannot read the decision log');
+
+-- Account manager M approves the venue and checks A's ID
+select set_config('request.jwt.claim.sub', :M, false);
+select pg_temp.expect((select count(*) from venues where not approved) = 1, 'admin sees venues waiting for approval');
+select pg_temp.expect((select id_number from staff_private where id = :A) = '9804125800087', 'admin can read ID details to check them');
+select pg_temp.expect_fail($$select admin_set_rtw('aaaaaaaa-0000-0000-0000-000000000001', 'rejected')$$, 'rejecting an ID needs a note');
+select admin_set_rtw(:A, 'rejected', 'Photo is blurry, please retake');
+select admin_set_venue_approval('11111111-0000-0000-0000-00000000000a', true, 'Called the owner, all good');
+select pg_temp.expect((select count(*) from admin_actions) = 2, 'both decisions are logged');
+select pg_temp.expect_fail($$insert into admin_actions (admin_id, action, target_id) values (auth.uid(), 'venue_approved', auth.uid())$$, 'nobody can write to the log directly');
+select set_config('request.jwt.claim.sub', :A, false);
+select pg_temp.expect((select rtw_note from profiles where id = auth.uid()) = 'Photo is blurry, please retake', 'staff see why their ID was not accepted');
+update staff_private set id_doc_path = 'aaaaaaaa-0000-0000-0000-000000000001/id-2.jpg' where id = auth.uid();
+select pg_temp.expect((select rtw_status from profiles where id = auth.uid()) = 'pending' and (select rtw_note from profiles where id = auth.uid()) is null, 'resubmitting puts the ID back in the queue');
+select set_config('request.jwt.claim.sub', :M, false);
+select admin_set_rtw(:A, 'verified');
+select set_config('request.jwt.claim.sub', :A, false);
+select pg_temp.expect((select rtw_status from profiles where id = auth.uid()) = 'verified', 'staff see their ID is verified');
 
 -- Staff A after approval
 set role authenticated; select set_config('request.jwt.claim.sub', :A, false);

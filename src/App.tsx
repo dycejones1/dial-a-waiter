@@ -1,17 +1,18 @@
 import type { ReactNode } from 'react'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
-import { SessionProvider, useSession } from './lib/session'
+import { SessionProvider, homeFor, useSession } from './lib/session'
 import { Address, Code, ConfirmChoice, Cv, Documents, Done, Jobs as PickJobs, Login, Photo, Register, Welcome } from './screens/join'
 import { Account, Applications, Home, Jobs, ShiftDetail } from './screens/staff'
 import { Dashboard, EmployerRegister, PostShift, ShiftApplicants, StartChoice, VenueSetup, VenueWelcome } from './screens/employer'
 import type { Profile } from './lib/types'
+import { AdminHome, AdminPerson } from './screens/admin'
 import { Header, Spinner } from './components/ui'
 
 function RequireAuth({ children, role }: { children: ReactNode; role?: Profile['role'] }) {
   const { ready, userId, profile } = useSession()
   if (!ready) return <Spinner />
   if (!userId) return <Navigate to="/" replace />
-  if (role && profile && profile.role !== role) return <Navigate to={profile.role === 'employer' ? '/venue' : '/home'} replace />
+  if (role && profile && profile.role !== role) return <Navigate to={homeFor(profile)} replace />
   return <>{children}</>
 }
 
@@ -61,6 +62,8 @@ function Routed() {
       <Route path="/venue" element={<RequireAuth role="employer"><Dashboard /></RequireAuth>} />
       <Route path="/venue/post" element={<RequireAuth role="employer"><PostShift /></RequireAuth>} />
       <Route path="/venue/shifts/:id" element={<RequireAuth role="employer"><ShiftApplicants /></RequireAuth>} />
+      <Route path="/admin" element={<RequireAuth role="admin"><AdminHome /></RequireAuth>} />
+      <Route path="/admin/people/:id" element={<RequireAuth role="admin"><AdminPerson /></RequireAuth>} />
       <Route path="/terms" element={<Terms />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

@@ -1,5 +1,5 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
-import type { Api, Applicant, Application, Channel, PrivateDetails, Profile, ProfilePatch, Shift, UploadKind, Venue, VenueShift } from './types'
+import type { AdminVenue, Api, Applicant, Application, IdCheck, Channel, PrivateDetails, Profile, ProfilePatch, Shift, UploadKind, Venue, VenueShift } from './types'
 import { distanceKm } from './format'
 
 const BUCKET: Record<UploadKind, string> = { photo: 'photos', cv: 'documents', id: 'documents' }
@@ -200,6 +200,53 @@ export function createSupabaseApi(url: string, anonKey: string): Api {
     async setApplicationStatus(applicationId, status) {
       const { error } = await sb.from('applications').update({ status }).eq('id', applicationId)
       if (error) throw friendly(error)
+    },
+
+    // ---------- Dial A Waiter team ----------
+    async adminVenues(approved) {
+      const { data, error } = await sb.from('venues')
+        .select('id, kind, name, area, approved, created_at, owner:profiles(first_name, last_name, phone, email)')
+        .eq('approved', approved).order('created_at', { ascending: !approved }).limit(200)
+      if (error) throw friendly(error)
+      return (data as any[]).map((r): AdminVenue => ({
+        id: r.id, kind: r.kind, name: r.name, area: r.area, approved: r.approved, createdAt: r.created_at,
+        owner: { firstName: r.owner?.first_name ?? '', lastName: r.owner?.last_name ?? null, phone: r.owner?.phone ?? null, email: r.owner?.email ?? null }
+      }))
+    },
+
+    async adminSetVenue(venueId, approved, note) {
+      const { error } = await sb.rpc('admin_set_venue_approval', { p_venue: venueId, p_approved: approved, p_note: note || null })
+      if (error) throw friendly(error)
+    },
+
+    async adminIdChecks(status) {
+      const { data, error } = await sb.from('profiles')
+        .select('id, first_name, last_name, phone, photo_path, cv_path, rtw_status, rtw_note, updated_at, staff_private(nationality, id_number, id_doc_path)')
+        .eq('role', 'staff').eq('rtw_status', status).order('updated_at', { ascending: true }).limit(200)
+      if (error) throw friendly(error)
+      return (data as any[]).map(toIdCheck)
+    },
+
+    async adminIdCheck(profileId) {
+      const { data, error } = await sb.from('profiles')
+        .select('id, first_name, last_name, phone, photo_path, cv_path, rtw_status, rtw_note, updated_at, staff_private(nationality, id_number, id_doc_path)')
+        .eq('id', profileId).maybeSingle()
+      if (error) throw friendly(error)
+      return data ? toIdCheck(data) : null
+    },
+
+    async adminSetRtw(profileId, status, note) {
+      const { error } = await sb.rpc('admin_set_rtw', { p_profile: profileId, p_status: status, p_note: note || null })
+      if (error) throw friendly(error)
     }
+  }
+}
+
+function toIdCheck(r: any): IdCheck {
+  const p = Array.isArray(r.staff_private) ? r.staff_private[0] : r.staff_private
+  return {
+    id: r.id, firstName: r.first_name, lastName: r.last_name, phone: r.phone, photoPath: r.photo_path, cvPath: r.cv_path,
+    rtwStatus: r.rtw_status, rtwNote: r.rtw_note ?? null, submittedAt: r.updated_at,
+    nationality: p?.nationality ?? null, idNumber: p?.id_number ?? null, idDocPath: p?.id_doc_path ?? null
   }
 }
