@@ -55,6 +55,13 @@ insert into applications (shift_id, staff_id) values ('22222222-0000-0000-0000-0
 select pg_temp.expect_fail($$update applications set status = 'booked' where staff_id = auth.uid()$$, 'staff cannot mark themselves booked');
 select pg_temp.expect((select count(*) from profiles) = 1, 'staff only see their own profile');
 
+-- Roles stay in their lane
+select pg_temp.expect_fail($$insert into venues (owner_id, name) values ('aaaaaaaa-0000-0000-0000-000000000001', 'My venue')$$, 'staff accounts cannot create venues');
+select pg_temp.expect_fail($$insert into venues (owner_id, name) values ('bbbbbbbb-0000-0000-0000-000000000002', 'Not mine')$$, 'nobody can create a venue for someone else');
+select pg_temp.expect_fail($$insert into shifts (venue_id, role, starts_at, ends_at, pay_cents) values ('11111111-0000-0000-0000-00000000000a', 'Waiter', now() + interval '1 day', now() + interval '1 day 4 hours', 50000)$$, 'staff cannot post shifts at someone else''s venue');
+update shifts set pay_cents = 1;
+select pg_temp.expect((select pay_cents from shifts limit 1) = 45000, 'staff cannot change a shift (update has no effect)');
+
 -- Staff C applies, venue B shortlists and books
 select set_config('request.jwt.claim.sub', :C, false);
 insert into applications (shift_id, staff_id) values ('22222222-0000-0000-0000-00000000000b', :C);
@@ -62,11 +69,21 @@ select pg_temp.expect((select count(*) from applications) = 1, 'staff only see t
 
 select set_config('request.jwt.claim.sub', :B, false);
 select pg_temp.expect((select count(*) from applications) = 2, 'venue sees applications to its shifts');
+select pg_temp.expect((select count(*) from applications a join profiles p on p.id = a.staff_id) = 2, 'venue can see who applied (name and photo)');
 update applications set status = 'booked' where staff_id = :C;
 select pg_temp.expect((select status from applications where staff_id = :C) = 'booked', 'venue can book an applicant');
 select pg_temp.expect_fail($$update applications set status = 'withdrawn' where staff_id = 'cccccccc-0000-0000-0000-000000000003'$$, 'venue cannot withdraw for staff');
 select pg_temp.expect((select count(*) from profiles where role = 'staff') = 2, 'approved employer can browse staff');
 select pg_temp.expect((select count(*) from staff_private) = 0, 'employer can never read ID numbers');
+select set_config('request.jwt.claim.sub', :B, false);
+select pg_temp.expect_fail($$insert into applications (shift_id, staff_id) values ('22222222-0000-0000-0000-00000000000b', 'bbbbbbbb-0000-0000-0000-000000000002')$$, 'employers cannot apply for shifts');
+update shifts set status = 'filled' where id = '22222222-0000-0000-0000-00000000000b';
+select pg_temp.expect((select status from shifts where id = '22222222-0000-0000-0000-00000000000b') = 'filled', 'venue can mark its shift filled');
+select set_config('request.jwt.claim.sub', :C, false);
+select pg_temp.expect((select count(*) from shifts) = 0, 'filled shifts disappear from the staff list');
+select set_config('request.jwt.claim.sub', :B, false);
+select pg_temp.expect((select count(*) from applications) = 2, 'venue still sees applicants on a filled shift');
+update shifts set status = 'open' where id = '22222222-0000-0000-0000-00000000000b';
 
 select set_config('request.jwt.claim.sub', :A, false);
 update applications set status = 'withdrawn' where staff_id = auth.uid();

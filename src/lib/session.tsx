@@ -13,7 +13,14 @@ function makeApi(): Api {
   return createSupabaseApi(url!, key!)
 }
 
-const emptyDraft: SignupDraft = { firstName: '', lastName: '', gender: '', dateOfBirth: '', email: '', phone: '', photo: null }
+const emptyDraft: SignupDraft = { firstName: '', lastName: '', gender: '', dateOfBirth: '', email: '', phone: '', photo: null, role: 'staff', orgKind: 'business', orgName: '' }
+
+/** Where someone lands after logging in. */
+export function homeFor(p: Profile | null): string {
+  if (!p) return '/'
+  if (p.role === 'employer') return '/venue'
+  return p.onboarded_at ? '/home' : '/join/address'
+}
 
 interface SessionValue {
   api: Api

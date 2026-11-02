@@ -2,7 +2,7 @@
 
 Paid hospitality shifts for people who need work, and reliable staff for venues.
 
-This is the first working version of the **staff app**, built as a mobile web app (PWA). People open it from a link, can add it to their home screen, and it's light on data. It follows the designs in the staging prototype.
+This is the first working version of the app for **staff and employers**, built as a mobile web app (PWA). People open it from a link, can add it to their home screen, and it's light on data. It follows the designs in the staging prototype.
 
 **What works now**
 
@@ -12,9 +12,10 @@ This is the first working version of the **staff app**, built as a mobile web ap
 - Find jobs by distance and role, see a shift's details with the pay first, and apply in one tap
 - Applications list with each one's status
 - Account page, dark mode, and installing to the home screen
-- A database with security rules: staff only see their own data, employers never see ID numbers, venues must be approved by your team before staff can see their shifts
+- **Employers ("I need staff"):** business or private-event sign-up with the same SMS/email codes, venue name and suburb, a "waiting for approval" welcome, a dashboard of upcoming shifts with applicant counts, a post-a-shift form (handles shifts past midnight and shows the hourly rate), and an applicants screen to shortlist, book or decline people, see whether their ID is checked, mark a shift filled or cancel it
+- A database with security rules: staff only see their own data, employers never see ID numbers, only employer accounts can create venues, and venues must be approved by your team before staff can see their shifts
 
-**Not built yet:** the employer app (posting shifts, choosing staff), availability calendar, earnings and payouts, ratings, notifications, and the iPhone/Android store apps. See "What's next" below.
+**Not built yet:** an admin page for your team, availability calendar, earnings and payouts, ratings, notifications (SMS/WhatsApp when someone is booked), finding staff directly, and the iPhone/Android store apps. See "What's next" below.
 
 ---
 
@@ -27,7 +28,7 @@ npm install
 npm run dev
 ```
 
-Open the link it prints (usually http://localhost:5173). With no Supabase keys the app runs in **demo mode** with sample shifts, and the login code is always `123456`. Nothing is saved online.
+Open the link it prints (usually http://localhost:5173). With no Supabase keys the app runs in **demo mode** with sample shifts, and the login code is always `123456`. Nothing is saved online. Tap **I need work** to try the staff side, or **I need staff** to try the employer side (in demo mode, three example people apply to every shift you post).
 
 ## 2. Connect Supabase (the real database and logins)
 
@@ -42,7 +43,7 @@ Open the link it prints (usually http://localhost:5173). With no Supabase keys t
 
 ### Approving a venue
 
-Until employer screens exist, your team approves venues in the SQL editor:
+Until the admin page exists, your team approves venues in the SQL editor:
 
 ```sql
 update venues set approved = true where name = 'Venue name';
@@ -71,7 +72,7 @@ A live build with no keys shows a setup message instead of quietly running the d
 
 ```bash
 npm test          # phone numbers, SA ID numbers, money and distance helpers
-npm run test:db   # runs the migration on a throwaway local Postgres and checks 25 security rules
+npm run test:db   # runs the migration on a throwaway local Postgres and checks 33 security rules
 npm run typecheck
 ```
 
@@ -84,6 +85,7 @@ src/
   App.tsx              routes
   screens/join.tsx     sign-up and log-in screens
   screens/staff.tsx    home, jobs, shift detail, applications, account
+  screens/employer.tsx employer sign-up, venue setup, dashboard, post a shift, applicants
   components/ui.tsx    icons, logo, headers, tab bar, venue illustrations
   lib/supabaseApi.ts   talks to Supabase
   lib/demoApi.ts       the same functions with sample data (demo mode)
@@ -106,8 +108,8 @@ supabase/
 
 ## What's next
 
-1. **Employer app:** sign-up (business or private), approval status, post a shift, see applicants, shortlist and book. The database and security rules for this already exist.
-2. **Admin tools:** a simple page for account managers to approve venues and check IDs.
+1. **Admin tools:** a simple page for account managers to approve venues and check IDs.
+2. **Find staff:** approved venues browse available people and invite them to a shift.
 3. **Availability calendar and positions matching** (the `availability` table is ready).
 4. **Notifications:** SMS or WhatsApp when someone is shortlisted or booked.
 5. **Ratings and earnings,** then **payouts** through a payments provider.

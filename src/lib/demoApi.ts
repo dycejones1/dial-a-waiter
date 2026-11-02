@@ -1,15 +1,16 @@
-// Demo mode: the whole app runs in the browser with sample shifts. Any code is "123456".
+// Demo mode: the whole app runs in the browser with sample data. Any code is "123456".
 // Used for demos and for trying the app before Supabase is set up. Nothing leaves the device.
-import type { Api, Application, Profile, Shift } from './types'
+import type { Api, Applicant, Application, Profile, Shift, Venue, VenueShift } from './types'
 import { distanceKm } from './format'
 
 export const DEMO_CODE = '123456'
-const KEY = 'daw-demo-v1'
+const KEY = 'daw-demo-v2'
 
 const day = (n: number, h: number, m = 0) => {
   const d = new Date(); d.setHours(h, m, 0, 0); d.setDate(d.getDate() + n); return d.toISOString()
 }
-const SHIFTS: (Omit<Shift, 'km'> & { lat: number; lng: number })[] = [
+type DemoShift = Omit<Shift, 'km'> & { lat: number; lng: number }
+const SHIFTS: DemoShift[] = [
   { id: 's1', venueName: 'Sample Bistro', role: 'Bartender', startsAt: day(3, 17), endsAt: day(3, 22), payCents: 45000, area: 'Woodstock', lat: -33.9268, lng: 18.4475, description: 'Cocktail service for a 60-cover dinner.', bring: ['Black shirt', 'Wine key'] },
   { id: 's2', venueName: 'Sample Grill House', role: 'Waiter', startsAt: day(4, 17), endsAt: day(4, 22, 30), payCents: 65000, area: 'Observatory', lat: -33.9378, lng: 18.4712, description: 'Busy Saturday dinner service. POS experience a plus.', bring: ['Black shirt', 'Closed shoes'] },
   { id: 's3', venueName: 'Sample Burger Co.', role: 'Cleaner', startsAt: day(5, 8), endsAt: day(5, 14), payCents: 35000, area: 'Rondebosch', lat: -33.9611, lng: 18.4719, description: 'Front-of-house and kitchen cleaning.', bring: ['Closed shoes'] },
@@ -17,12 +18,28 @@ const SHIFTS: (Omit<Shift, 'km'> & { lat: number; lng: number })[] = [
   { id: 's5', venueName: 'Sample Kitchen', role: 'Dishwasher', startsAt: day(5, 17), endsAt: day(5, 23), payCents: 38000, area: 'Gardens', lat: -33.9339, lng: 18.4137, description: 'Evening service in an open kitchen.', bring: ['Closed shoes'] },
   { id: 's6', venueName: 'Sample Bistro', role: 'Head Chef', startsAt: day(8, 14), endsAt: day(8, 23), payCents: 140000, area: 'City Centre', lat: -33.9249, lng: 18.4241, description: 'Private function for 40 guests. Set menu supplied.', bring: ['Chef whites'] }
 ]
+// Example people who "apply" to shifts a demo venue posts
+const PEOPLE: Applicant['staff'][] = [
+  { id: 'p1', firstName: 'Thabo', lastName: 'M.', photoPath: null, positions: ['Bartender', 'Waiter / Waitress'], rtwStatus: 'verified' },
+  { id: 'p2', firstName: 'Aisha', lastName: 'K.', photoPath: null, positions: ['Waiter / Waitress', 'Host'], rtwStatus: 'verified' },
+  { id: 'p3', firstName: 'Lindiwe', lastName: 'N.', photoPath: null, positions: ['Cleaner', 'Dishwasher'], rtwStatus: 'pending' }
+]
 
-interface Store { userId: string | null; profile: Profile | null; applications: { id: string; shiftId: string; status: Application['status']; createdAt: string }[]; pending: Record<string, unknown> | null }
+interface Posted { id: string; role: string; startsAt: string; endsAt: string; payCents: number; description: string | null; bring: string[]; status: VenueShift['status'] }
+interface Store {
+  userId: string | null
+  profile: Profile | null
+  applications: { id: string; shiftId: string; status: Application['status']; createdAt: string }[]
+  pending: { first_name?: string; last_name?: string; role?: 'staff' | 'employer' } | null
+  venue: Venue | null
+  posted: Posted[]
+  applicants: Record<string, { id: string; personId: string; status: Applicant['status']; createdAt: string }[]>
+}
+const empty = (): Store => ({ userId: null, profile: null, applications: [], pending: null, venue: null, posted: [], applicants: {} })
 
 function load(): Store {
-  try { const s = sessionStorage.getItem(KEY); if (s) return JSON.parse(s) } catch { /* storage unavailable */ }
-  return { userId: null, profile: null, applications: [], pending: null }
+  try { const s = sessionStorage.getItem(KEY); if (s) return { ...empty(), ...JSON.parse(s) } } catch { /* storage unavailable */ }
+  return empty()
 }
 
 export function createDemoApi(): Api {
@@ -31,8 +48,17 @@ export function createDemoApi(): Api {
   const files = new Map<string, string>()
   const save = () => { try { sessionStorage.setItem(KEY, JSON.stringify(st)) } catch { /* ignore */ } }
   const wait = (ms = 250) => new Promise(r => setTimeout(r, ms))
-  const withKm = (s: typeof SHIFTS[number], lat: number | null, lng: number | null): Shift =>
+  const withKm = (s: DemoShift, lat: number | null, lng: number | null): Shift =>
     ({ ...s, km: lat != null && lng != null ? distanceKm(lat, lng, s.lat, s.lng) : null })
+  const venueShift = (p: Posted): VenueShift => {
+    const apps = st.applicants[p.id] ?? []
+    const n = (s: string) => apps.filter(a => a.status === s).length
+    return {
+      id: p.id, venueName: st.venue?.name ?? 'My venue', role: p.role, startsAt: p.startsAt, endsAt: p.endsAt, payCents: p.payCents,
+      area: st.venue?.area ?? null, description: p.description, bring: p.bring, km: null, status: p.status,
+      counts: { total: apps.length, waiting: n('applied'), shortlisted: n('shortlisted'), booked: n('booked') }
+    }
+  }
 
   return {
     mode: 'demo',
@@ -42,10 +68,10 @@ export function createDemoApi(): Api {
     async verifyCode(channel, to, code) {
       await wait()
       if (code !== DEMO_CODE) throw new Error('That code is wrong or has expired. In demo mode the code is 123456.')
-      if (!st.profile) {
-        const meta = (st.pending ?? {}) as { first_name?: string; last_name?: string }
+      const meta = st.pending ?? {}
+      if (!st.profile || (meta.role && meta.role !== st.profile.role)) {
         st.profile = {
-          id: 'demo-user', role: 'staff', first_name: meta.first_name ?? 'Friend', last_name: meta.last_name ?? null, gender: null,
+          id: 'demo-user', role: meta.role ?? 'staff', first_name: meta.first_name ?? 'Friend', last_name: meta.last_name ?? null, gender: null,
           date_of_birth: null, email: channel === 'email' ? to : null, phone: channel === 'sms' ? to : null, confirmed_by: channel,
           photo_path: null, address: null, lat: null, lng: null, travel_km: 10, positions: [], cv_path: null,
           rtw_status: 'not_submitted', onboarded_at: null
@@ -54,7 +80,7 @@ export function createDemoApi(): Api {
       st.userId = 'demo-user'; save(); listeners.forEach(l => l(st.userId))
       return st.userId
     },
-    async signOut() { st = { userId: null, profile: null, applications: [], pending: null }; save(); listeners.forEach(l => l(null)) },
+    async signOut() { st = empty(); save(); listeners.forEach(l => l(null)) },
     async getProfile() { return st.userId ? st.profile : null },
     async updateProfile(patch) {
       if (!st.profile) throw new Error('Please log in again.')
@@ -87,6 +113,30 @@ export function createDemoApi(): Api {
     },
     async myApplications() {
       return st.applications.map(a => ({ id: a.id, status: a.status, createdAt: a.createdAt, shift: withKm(SHIFTS.find(s => s.id === a.shiftId)!, null, null) }))
+    },
+
+    // ---------- employers ----------
+    async getMyVenue() { return st.venue },
+    async createVenue(v) { await wait(); st.venue = { ...v, id: 'v1', approved: false }; save(); return st.venue },
+    async myVenueShifts() { await wait(150); return st.posted.map(venueShift).sort((a, b) => a.startsAt.localeCompare(b.startsAt)) },
+    async postShift(s) {
+      await wait()
+      if (!st.venue) throw new Error('Set up your venue first.')
+      const id = 'p' + Date.now()
+      st.posted.push({ id, role: s.role, startsAt: s.startsAt, endsAt: s.endsAt, payCents: s.payCents, description: s.description || null, bring: s.bring, status: 'open' })
+      // In demo mode, example people apply straight away so the applicants screen has something to show
+      st.applicants[id] = PEOPLE.map((p, i) => ({ id: `${id}-${p.id}`, personId: p.id, status: 'applied', createdAt: new Date(Date.now() - i * 6e5).toISOString() }))
+      save()
+    },
+    async setShiftStatus(shiftId, status) { const p = st.posted.find(x => x.id === shiftId); if (p) { p.status = status; save() } },
+    async shiftApplicants(shiftId) {
+      await wait(150)
+      return (st.applicants[shiftId] ?? []).map(a => ({ id: a.id, status: a.status, createdAt: a.createdAt, staff: PEOPLE.find(p => p.id === a.personId)! }))
+    },
+    async setApplicationStatus(applicationId, status) {
+      await wait()
+      for (const list of Object.values(st.applicants)) { const a = list.find(x => x.id === applicationId); if (a) a.status = status }
+      save()
     }
   }
 }

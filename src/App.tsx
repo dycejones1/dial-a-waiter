@@ -1,14 +1,18 @@
 import type { ReactNode } from 'react'
-import { BrowserRouter, Navigate, Route, Routes, Link } from 'react-router-dom'
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { SessionProvider, useSession } from './lib/session'
 import { Address, Code, ConfirmChoice, Cv, Documents, Done, Jobs as PickJobs, Login, Photo, Register, Welcome } from './screens/join'
 import { Account, Applications, Home, Jobs, ShiftDetail } from './screens/staff'
+import { Dashboard, EmployerRegister, PostShift, ShiftApplicants, StartChoice, VenueSetup, VenueWelcome } from './screens/employer'
+import type { Profile } from './lib/types'
 import { Header, Spinner } from './components/ui'
 
-function RequireAuth({ children }: { children: ReactNode }) {
-  const { ready, userId } = useSession()
+function RequireAuth({ children, role }: { children: ReactNode; role?: Profile['role'] }) {
+  const { ready, userId, profile } = useSession()
   if (!ready) return <Spinner />
-  return userId ? <>{children}</> : <Navigate to="/" replace />
+  if (!userId) return <Navigate to="/" replace />
+  if (role && profile && profile.role !== role) return <Navigate to={profile.role === 'employer' ? '/venue' : '/home'} replace />
+  return <>{children}</>
 }
 
 function DemoBanner() {
@@ -27,17 +31,6 @@ function Terms() {
   )
 }
 
-function StaffSide() {
-  return (
-    <div className="screen"><Header title="I need staff" />
-      <div className="scroll center" style={{ paddingTop: 30 }}>
-        <h1 className="t-disp">Hiring for your venue?</h1>
-        <p className="t-sub">Employer accounts are opening soon. Leave your details with our team and an account manager will set you up.</p>
-        <Link className="btn sec" to="/">Back</Link>
-      </div>
-    </div>
-  )
-}
 
 function Routed() {
   const { ready } = useSession()
@@ -51,18 +44,24 @@ function Routed() {
       <Route path="/join/photo" element={<Photo />} />
       <Route path="/join/confirm" element={<ConfirmChoice />} />
       <Route path="/join/code" element={<Code />} />
-      <Route path="/join/address" element={<RequireAuth><Address /></RequireAuth>} />
-      <Route path="/join/jobs" element={<RequireAuth><PickJobs /></RequireAuth>} />
-      <Route path="/join/cv" element={<RequireAuth><Cv /></RequireAuth>} />
-      <Route path="/join/documents" element={<RequireAuth><Documents /></RequireAuth>} />
-      <Route path="/join/done" element={<RequireAuth><Done /></RequireAuth>} />
-      <Route path="/home" element={<RequireAuth><Home /></RequireAuth>} />
-      <Route path="/jobs" element={<RequireAuth><Jobs /></RequireAuth>} />
-      <Route path="/jobs/:id" element={<RequireAuth><ShiftDetail /></RequireAuth>} />
-      <Route path="/applications" element={<RequireAuth><Applications /></RequireAuth>} />
+      <Route path="/join/address" element={<RequireAuth role="staff"><Address /></RequireAuth>} />
+      <Route path="/join/jobs" element={<RequireAuth role="staff"><PickJobs /></RequireAuth>} />
+      <Route path="/join/cv" element={<RequireAuth role="staff"><Cv /></RequireAuth>} />
+      <Route path="/join/documents" element={<RequireAuth role="staff"><Documents /></RequireAuth>} />
+      <Route path="/join/done" element={<RequireAuth role="staff"><Done /></RequireAuth>} />
+      <Route path="/home" element={<RequireAuth role="staff"><Home /></RequireAuth>} />
+      <Route path="/jobs" element={<RequireAuth role="staff"><Jobs /></RequireAuth>} />
+      <Route path="/jobs/:id" element={<RequireAuth role="staff"><ShiftDetail /></RequireAuth>} />
+      <Route path="/applications" element={<RequireAuth role="staff"><Applications /></RequireAuth>} />
       <Route path="/account" element={<RequireAuth><Account /></RequireAuth>} />
+      <Route path="/venue/start" element={<StartChoice />} />
+      <Route path="/venue/join" element={<EmployerRegister />} />
+      <Route path="/venue/setup" element={<RequireAuth role="employer"><VenueSetup /></RequireAuth>} />
+      <Route path="/venue/welcome" element={<RequireAuth role="employer"><VenueWelcome /></RequireAuth>} />
+      <Route path="/venue" element={<RequireAuth role="employer"><Dashboard /></RequireAuth>} />
+      <Route path="/venue/post" element={<RequireAuth role="employer"><PostShift /></RequireAuth>} />
+      <Route path="/venue/shifts/:id" element={<RequireAuth role="employer"><ShiftApplicants /></RequireAuth>} />
       <Route path="/terms" element={<Terms />} />
-      <Route path="/staff" element={<StaffSide />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   )

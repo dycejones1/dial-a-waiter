@@ -2,7 +2,7 @@
 // Steps after the code also open from the home checklist, and then return home when saved.
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link, Navigate, useNavigate } from 'react-router-dom'
-import { useSession } from '../lib/session'
+import { homeFor, useSession } from '../lib/session'
 import { isEmail, isValidSaId, normalizePhone, prettyPhone, profileChecklist } from '../lib/format'
 import { DEMO_CODE } from '../lib/demoApi'
 import type { Channel } from '../lib/types'
@@ -18,7 +18,7 @@ function useNext(next: string) {
 
 export function Welcome() {
   const { userId, profile } = useSession()
-  if (userId && profile) return <Navigate to={profile.onboarded_at ? '/home' : '/join/address'} replace />
+  if (userId && profile) return <Navigate to={homeFor(profile)} replace />
   return (
     <div className="wel">
       <div className="art"><Pattern /></div>
@@ -27,7 +27,7 @@ export function Welcome() {
         <h1>Service<br />with a smile.</h1>
         <p>Paid hospitality shifts near you, and reliable staff for venues that need them.</p>
         <Link className="btn pri" to="/join/register">I need work</Link>
-        <Link className="btn light" to="/staff">I need staff</Link>
+        <Link className="btn light" to="/venue/start">I need staff</Link>
         <p className="center" style={{ margin: '6px 0 0' }}>Already a member? <Link to="/login" style={{ color: '#fff', fontWeight: 600 }}>Log in</Link></p>
       </div>
     </div>
@@ -53,6 +53,8 @@ export function Register() {
   const nav = useNavigate()
   const [err, setErr] = useState('')
   const [agree, setAgree] = useState(false)
+
+  useEffect(() => { if (draft.role !== 'staff') setDraft({ role: 'staff' }) }, [draft.role, setDraft])
 
   function submit(e: FormEvent) {
     e.preventDefault()
@@ -150,13 +152,14 @@ export function ConfirmChoice() {
   const [channel, setChannel] = useState<Channel>('sms')
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
-  if (!draft.firstName || !phone) return <Navigate to="/join/register" replace />
+  const employer = draft.role === 'employer'
+  if (!draft.firstName || !phone) return <Navigate to={employer ? '/venue/join' : '/join/register'} replace />
 
   async function send() {
     const to = channel === 'sms' ? phone! : draft.email.trim()
     try {
       setBusy(true); setErr('')
-      await api.sendCode(channel, to, { first_name: draft.firstName.trim(), last_name: draft.lastName.trim() || undefined, role: 'staff' })
+      await api.sendCode(channel, to, { first_name: draft.firstName.trim(), last_name: draft.lastName.trim() || undefined, role: draft.role })
       setConfirm({ channel, to, purpose: 'join' })
       nav('/join/code')
     } catch (e) { setErr((e as Error).message) } finally { setBusy(false) }
@@ -167,7 +170,7 @@ export function ConfirmChoice() {
   ]
   return (
     <div className="screen">
-      <Progress step={3} />
+      {employer ? <Progress step={2} total={4} /> : <Progress step={3} />}
       <div className="scroll">
         <h1 className="t-disp">How should we confirm it’s you?</h1>
         <p className="t-sub">We’ll send a quick code so we know your details are right.</p>
@@ -213,9 +216,9 @@ export function Code() {
         if (draft.photo) {
           try { p = await api.updateProfile({ photo_path: await api.upload('photo', draft.photo) }) } catch { /* photo can be added later */ }
         }
-        setProfile(p); nav('/join/address', { replace: true })
+        setProfile(p); nav(draft.role === 'employer' ? '/venue/setup' : '/join/address', { replace: true })
       } else {
-        await refresh(); nav('/home', { replace: true })
+        const p = await api.getProfile(); await refresh(); nav(homeFor(p), { replace: true })
       }
     } catch (e) { setErr((e as Error).message); setDigits(['', '', '', '', '', '']); refs.current[0]?.focus() } finally { setBusy(false) }
   }
@@ -232,12 +235,12 @@ export function Code() {
     if (d && next.every(Boolean)) verify(next.join(''))
   }
   async function resend() {
-    try { await api.sendCode(confirm!.channel, confirm!.to, join ? { first_name: draft.firstName, last_name: draft.lastName || undefined, role: 'staff' } : undefined); setWait(30); setErr('') }
+    try { await api.sendCode(confirm!.channel, confirm!.to, join ? { first_name: draft.firstName, last_name: draft.lastName || undefined, role: draft.role } : undefined); setWait(30); setErr('') }
     catch (e) { setErr((e as Error).message) }
   }
   return (
     <div className="screen">
-      {join ? <Progress step={4} /> : <div style={{ height: 62 }} />}
+      {join ? (draft.role === 'employer' ? <Progress step={3} total={4} /> : <Progress step={4} />) : <div style={{ height: 62 }} />}
       <div className="scroll">
         <h1 className="t-disp">Enter the code we sent you</h1>
         <p className="t-sub">We sent a 6-digit code to <b style={{ color: 'var(--ink)' }}>{prettyPhone(confirm.to)}</b>.</p>

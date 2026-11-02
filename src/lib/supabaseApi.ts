@@ -1,5 +1,5 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
-import type { Api, Application, Channel, PrivateDetails, Profile, ProfilePatch, Shift, UploadKind } from './types'
+import type { Api, Applicant, Application, Channel, PrivateDetails, Profile, ProfilePatch, Shift, UploadKind, Venue, VenueShift } from './types'
 import { distanceKm } from './format'
 
 const BUCKET: Record<UploadKind, string> = { photo: 'photos', cv: 'documents', id: 'documents' }
@@ -139,6 +139,67 @@ export function createSupabaseApi(url: string, anonKey: string): Api {
       return (data as any[]).filter(r => r.shift).map((r): Application => ({
         id: r.id, status: r.status, createdAt: r.created_at, shift: fromRow(r.shift as ShiftRow)
       }))
+    },
+
+    // ---------- employers ----------
+    async getMyVenue() {
+      const id = await uid()
+      const { data, error } = await sb.from('venues').select('id, kind, name, area, lat, lng, approved').eq('owner_id', id)
+        .order('created_at').limit(1).maybeSingle()
+      if (error) throw friendly(error)
+      return data as Venue | null
+    },
+
+    async createVenue(v) {
+      const id = await uid()
+      const { data, error } = await sb.from('venues').insert({ ...v, owner_id: id }).select('id, kind, name, area, lat, lng, approved').single()
+      if (error) throw friendly(error)
+      return data as Venue
+    },
+
+    async myVenueShifts() {
+      const venue = await this.getMyVenue()
+      if (!venue) return []
+      const { data, error } = await sb.from('shifts')
+        .select('id, role, starts_at, ends_at, pay_cents, area, description, bring, lat, lng, status, venues(name), applications(status)')
+        .eq('venue_id', venue.id).order('starts_at', { ascending: true })
+      if (error) throw friendly(error)
+      return (data as any[]).map((r): VenueShift => {
+        const apps: { status: string }[] = r.applications ?? []
+        const n = (s: string) => apps.filter(a => a.status === s).length
+        return { ...fromRow(r as ShiftRow), status: r.status, counts: { total: apps.filter(a => a.status !== 'withdrawn').length, waiting: n('applied'), shortlisted: n('shortlisted'), booked: n('booked') } }
+      })
+    },
+
+    async postShift(s) {
+      const venue = await this.getMyVenue()
+      if (!venue) throw new Error('Set up your venue first.')
+      const { error } = await sb.from('shifts').insert({
+        venue_id: venue.id, role: s.role, starts_at: s.startsAt, ends_at: s.endsAt, pay_cents: s.payCents,
+        description: s.description || null, bring: s.bring, area: venue.area, lat: venue.lat, lng: venue.lng
+      })
+      if (error) throw friendly(error)
+    },
+
+    async setShiftStatus(shiftId, status) {
+      const { error } = await sb.from('shifts').update({ status }).eq('id', shiftId)
+      if (error) throw friendly(error)
+    },
+
+    async shiftApplicants(shiftId) {
+      const { data, error } = await sb.from('applications')
+        .select('id, status, created_at, staff:profiles(id, first_name, last_name, photo_path, positions, rtw_status)')
+        .eq('shift_id', shiftId).neq('status', 'withdrawn').order('created_at')
+      if (error) throw friendly(error)
+      return (data as any[]).filter(r => r.staff).map((r): Applicant => ({
+        id: r.id, status: r.status, createdAt: r.created_at,
+        staff: { id: r.staff.id, firstName: r.staff.first_name, lastName: r.staff.last_name, photoPath: r.staff.photo_path, positions: r.staff.positions ?? [], rtwStatus: r.staff.rtw_status }
+      }))
+    },
+
+    async setApplicationStatus(applicationId, status) {
+      const { error } = await sb.from('applications').update({ status }).eq('id', applicationId)
+      if (error) throw friendly(error)
     }
   }
 }

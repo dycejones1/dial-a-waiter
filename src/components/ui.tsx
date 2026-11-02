@@ -1,4 +1,5 @@
 import { useNavigate, NavLink } from 'react-router-dom'
+import { useSession } from '../lib/session'
 import type { ReactNode } from 'react'
 
 const P: Record<string, string> = {
@@ -74,11 +75,14 @@ export function Header({ title, back = true, right }: { title: string; back?: bo
 }
 
 export function TabBar() {
-  const tabs = [['/home', 'home', 'Home'], ['/jobs', 'search', 'Jobs'], ['/applications', 'brief', 'Applications'], ['/account', 'user', 'Account']] as const
+  const { profile } = useSession()
+  const tabs = profile?.role === 'employer'
+    ? [['/venue', 'home', 'Dashboard'], ['/venue/post', 'plus', 'Post a shift'], ['/account', 'user', 'Account']] as const
+    : [['/home', 'home', 'Home'], ['/jobs', 'search', 'Jobs'], ['/applications', 'brief', 'Applications'], ['/account', 'user', 'Account']] as const
   return (
     <nav className="tabbar" aria-label="Main">
       {tabs.map(([to, ic, label]) => (
-        <NavLink key={to} to={to} className={({ isActive }) => (isActive ? 'active' : '')}><Icon name={ic} />{label}</NavLink>
+        <NavLink key={to} to={to} end className={({ isActive }) => (isActive ? 'active' : '')}><Icon name={ic} />{label}</NavLink>
       ))}
     </nav>
   )

@@ -241,7 +241,8 @@ create trigger staff_private_rtw after insert or update on public.staff_private
 create policy "venues: read approved or own" on public.venues for select to authenticated
   using (approved or owner_id = auth.uid());
 create policy "venues: create own" on public.venues for insert to authenticated
-  with check (owner_id = auth.uid() and approved = false);
+  with check (owner_id = auth.uid() and approved = false
+              and exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'employer'));
 create policy "venues: update own" on public.venues for update to authenticated
   using (owner_id = auth.uid()) with check (owner_id = auth.uid());
 revoke update on public.venues from authenticated;

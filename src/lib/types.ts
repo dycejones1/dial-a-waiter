@@ -10,6 +10,9 @@ export interface SignupDraft {
   email: string
   phone: string
   photo?: File | null
+  role: 'staff' | 'employer'
+  orgKind: 'business' | 'private'
+  orgName: string
 }
 
 export interface Profile {
@@ -63,6 +66,39 @@ export interface PrivateDetails {
 
 export type UploadKind = 'photo' | 'cv' | 'id'
 
+export interface Venue {
+  id: string
+  kind: 'business' | 'private'
+  name: string
+  area: string | null
+  lat: number | null
+  lng: number | null
+  approved: boolean
+}
+
+export type ShiftStatus = 'open' | 'filled' | 'cancelled'
+
+export interface VenueShift extends Shift {
+  status: ShiftStatus
+  counts: { total: number; waiting: number; shortlisted: number; booked: number }
+}
+
+export interface NewShift {
+  role: string
+  startsAt: string
+  endsAt: string
+  payCents: number
+  description: string
+  bring: string[]
+}
+
+export interface Applicant {
+  id: string
+  status: ApplicationStatus
+  createdAt: string
+  staff: { id: string; firstName: string; lastName: string | null; photoPath: string | null; positions: string[]; rtwStatus: RtwStatus }
+}
+
 export interface Api {
   readonly mode: 'demo' | 'live'
   currentUserId(): Promise<string | null>
@@ -80,4 +116,12 @@ export interface Api {
   getShift(id: string, from?: { lat: number | null; lng: number | null }): Promise<Shift | null>
   apply(shiftId: string): Promise<void>
   myApplications(): Promise<Application[]>
+  // Employers
+  getMyVenue(): Promise<Venue | null>
+  createVenue(v: Omit<Venue, 'id' | 'approved'>): Promise<Venue>
+  myVenueShifts(): Promise<VenueShift[]>
+  postShift(s: NewShift): Promise<void>
+  setShiftStatus(shiftId: string, status: ShiftStatus): Promise<void>
+  shiftApplicants(shiftId: string): Promise<Applicant[]>
+  setApplicationStatus(applicationId: string, status: 'shortlisted' | 'booked' | 'declined'): Promise<void>
 }

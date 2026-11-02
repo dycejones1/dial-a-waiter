@@ -5,6 +5,7 @@ import { useSession } from '../lib/session'
 import { km, prettyPhone, profileChecklist, rands, shiftDay, shiftHours, shiftTime } from '../lib/format'
 import type { Application, Shift } from '../lib/types'
 import { Header, Icon, Spinner, TabBar, VenueArt } from '../components/ui'
+import { useVenue } from './employer'
 
 const STATUS: Record<Application['status'], [string, 'ok' | 'warn' | 'acc']> = {
   applied: ['Waiting for venue', 'warn'], shortlisted: ['Shortlisted', 'ok'], booked: ['Booked', 'ok'],
@@ -207,6 +208,7 @@ export function Account() {
   const { api, profile } = useSession()
   const nav = useNavigate()
   if (!profile) return <Spinner />
+  if (profile.role === 'employer') return <EmployerAccount />
   const items = profileChecklist(profile)
   const rtw = { not_submitted: ['To do', 'acc'], pending: ['Checking', 'warn'], verified: ['Verified', 'ok'], rejected: ['Please resubmit', 'acc'] }[profile.rtw_status]
   return (
@@ -225,6 +227,35 @@ export function Account() {
             </Link>
           ))}
         </div>
+        <div className="surf" style={{ marginTop: 12 }}>
+          <Link className="lrow" to="/terms"><span className="ic"><Icon name="file" size={20} /></span><span className="tx"><b>Terms & privacy</b><small>The rules and how we use your data</small></span><Icon name="chev" size={18} /></Link>
+        </div>
+        <button className="btn sec" style={{ margin: '14px 0' }} onClick={async () => { await api.signOut(); nav('/', { replace: true }) }}><Icon name="out" size={18} />Log out</button>
+      </div>
+      <TabBar />
+    </div>
+  )
+}
+
+function EmployerAccount() {
+  const { api, profile } = useSession()
+  const { venue } = useVenue()
+  const nav = useNavigate()
+  return (
+    <div className="screen">
+      <div className="scroll" style={{ paddingTop: 14 }}>
+        <h1 className="page-title">Account</h1>
+        <div className="row" style={{ margin: '12px 0 16px' }}>
+          <span className="av" style={{ background: 'var(--brand)' }}>{venue?.name?.[0]?.toUpperCase() ?? profile?.first_name?.[0]}</span>
+          <div><b style={{ fontSize: 18 }}>{profile?.first_name} {profile?.last_name}</b><div style={{ fontSize: 14, color: 'var(--mute)' }}>{profile?.phone ? prettyPhone(profile.phone) : profile?.email}</div></div>
+        </div>
+        {venue && (
+          <div className="surf">
+            <div className="lrow"><span className="ic"><Icon name="brief" size={20} /></span>
+              <span className="tx"><b>{venue.name}</b><small>{venue.kind === 'private' ? 'Private event' : 'Business'}{venue.area ? ` · ${venue.area}` : ''}</small></span>
+              <span className={`pill ${venue.approved ? 'ok' : 'warn'}`}>{venue.approved ? 'Approved' : 'Waiting for approval'}</span></div>
+          </div>
+        )}
         <div className="surf" style={{ marginTop: 12 }}>
           <Link className="lrow" to="/terms"><span className="ic"><Icon name="file" size={20} /></span><span className="tx"><b>Terms & privacy</b><small>The rules and how we use your data</small></span><Icon name="chev" size={18} /></Link>
         </div>
