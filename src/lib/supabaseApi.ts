@@ -21,6 +21,7 @@ function fromRow(r: ShiftRow, from?: { lat: number | null; lng: number | null })
 function friendly(e: { message?: string } | null): Error {
   const m = e?.message ?? 'Something went wrong'
   if (/token has expired|invalid/i.test(m)) return new Error('That code is wrong or has expired. Check it, or send a new one.')
+  if (/phone provider|sms provider|phone.*(disabled|not enabled)|phone signups/i.test(m)) return new Error('Text-message codes aren’t switched on yet. Go back and choose Email instead.')
   if (/rate limit|too many/i.test(m)) return new Error('Too many tries. Wait a minute, then try again.')
   if (/signups not allowed|user not found/i.test(m)) return new Error('We couldn’t find an account with those details. Tap “Join now” to sign up.')
   return new Error(m)
