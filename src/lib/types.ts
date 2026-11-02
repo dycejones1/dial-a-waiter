@@ -130,7 +130,7 @@ export interface Api {
   currentUserId(): Promise<string | null>
   onAuthChange(cb: (userId: string | null) => void): () => void
   /** Sends a one-time code. Pass `signup` to create the account if it doesn't exist yet. */
-  sendCode(channel: Channel, to: string, signup?: { first_name: string; last_name?: string; role?: 'staff' | 'employer' }): Promise<void>
+  sendCode(channel: Channel, to: string, signup?: { first_name: string; last_name?: string; role?: 'staff' | 'employer'; phone?: string; gender?: string; date_of_birth?: string }): Promise<void>
   verifyCode(channel: Channel, to: string, code: string): Promise<string>
   signOut(): Promise<void>
   getProfile(): Promise<Profile | null>

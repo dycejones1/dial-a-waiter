@@ -164,7 +164,7 @@ export function ConfirmChoice() {
     const to = channel === 'sms' ? phone! : draft.email.trim()
     try {
       setBusy(true); setErr('')
-      await api.sendCode(channel, to, { first_name: draft.firstName.trim(), last_name: draft.lastName.trim() || undefined, role: draft.role })
+      await api.sendCode(channel, to, { first_name: draft.firstName.trim(), last_name: draft.lastName.trim() || undefined, role: draft.role, phone: phone ?? undefined, gender: draft.gender || undefined, date_of_birth: draft.dateOfBirth || undefined })
       setConfirm({ channel, to, purpose: 'join' })
       nav('/join/code')
     } catch (e) { setErr((e as Error).message) } finally { setBusy(false) }
@@ -194,7 +194,7 @@ export function ConfirmChoice() {
 }
 
 export function Code() {
-  const { api, confirm, draft, setProfile, refresh } = useSession()
+  const { api, confirm, draft, setProfile, refresh, userId } = useSession()
   const nav = useNavigate()
   const [digits, setDigits] = useState(['', '', '', '', '', ''])
   const [busy, setBusy] = useState(false)
@@ -204,6 +204,9 @@ export function Code() {
 
   useEffect(() => { refs.current[0]?.focus() }, [])
   useEffect(() => { if (wait > 0) { const t = setTimeout(() => setWait(w => w - 1), 1000); return () => clearTimeout(t) } }, [wait])
+  const done = useRef(false)
+  // Email can also arrive as a sign-in link. If it's tapped in another tab, this tab is signed in too, so carry on from here.
+  useEffect(() => { if (userId && confirm && !done.current) { setBusy(true); finish().catch(e => setErr((e as Error).message)).finally(() => setBusy(false)) } }, [userId]) // eslint-disable-line react-hooks/exhaustive-deps
   if (!confirm) return <Navigate to="/" replace />
 
   const join = confirm.purpose === 'join'
@@ -212,6 +215,13 @@ export function Code() {
     try {
       setBusy(true); setErr('')
       await api.verifyCode(confirm!.channel, confirm!.to, code)
+      await finish()
+    } catch (e) { setErr((e as Error).message); setDigits(['', '', '', '', '', '']); refs.current[0]?.focus() } finally { setBusy(false) }
+  }
+  async function finish() {
+    if (done.current) return
+    done.current = true
+    try {
       if (join) {
         const phone = normalizePhone(draft.phone)
         let p = await api.updateProfile({
@@ -225,7 +235,7 @@ export function Code() {
       } else {
         const p = await api.getProfile(); await refresh(); nav(homeFor(p), { replace: true })
       }
-    } catch (e) { setErr((e as Error).message); setDigits(['', '', '', '', '', '']); refs.current[0]?.focus() } finally { setBusy(false) }
+    } catch (e) { done.current = false; throw e }
   }
   function onType(i: number, v: string) {
     const d = v.replace(/\D/g, '')
@@ -240,7 +250,7 @@ export function Code() {
     if (d && next.every(Boolean)) verify(next.join(''))
   }
   async function resend() {
-    try { await api.sendCode(confirm!.channel, confirm!.to, join ? { first_name: draft.firstName, last_name: draft.lastName || undefined, role: draft.role } : undefined); setWait(30); setErr('') }
+    try { await api.sendCode(confirm!.channel, confirm!.to, join ? { first_name: draft.firstName, last_name: draft.lastName || undefined, role: draft.role, phone: normalizePhone(draft.phone) ?? undefined, gender: draft.gender || undefined, date_of_birth: draft.dateOfBirth || undefined } : undefined); setWait(30); setErr('') }
     catch (e) { setErr((e as Error).message) }
   }
   return (
@@ -257,6 +267,9 @@ export function Code() {
               onKeyDown={e => { if (e.key === 'Backspace' && !digits[i] && i > 0) refs.current[i - 1]?.focus() }} />
           ))}
         </div>
+        {confirm.channel === 'email' && api.mode === 'live' && (
+          <p className="t-sub" style={{ fontSize: 14 }}>If the email has a <b style={{ color: 'var(--ink)' }}>Sign in</b> link instead of a code, tap it on this phone. You’ll carry on automatically.</p>
+        )}
         <p className="err center" role="alert">{err}</p>
         <p className="t-sub center" style={{ fontSize: 14 }}>
           Didn’t get it? {wait > 0 ? <span>You can send a new code in {wait}s</span> : <button className="link" onClick={resend}>Send a new code</button>}

@@ -50,7 +50,7 @@ export function createSupabaseApi(url: string, anonKey: string): Api {
     },
 
     async sendCode(channel: Channel, to: string, signup) {
-      const options = { shouldCreateUser: !!signup, data: signup }
+      const options = { shouldCreateUser: !!signup, data: signup, emailRedirectTo: typeof window !== 'undefined' ? window.location.origin : undefined }
       const { error } = channel === 'sms'
         ? await sb.auth.signInWithOtp({ phone: to, options })
         : await sb.auth.signInWithOtp({ email: to, options })
