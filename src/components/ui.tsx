@@ -28,12 +28,8 @@ export function Icon({ name, size = 22, stroke = 1.9 }: { name: keyof typeof P |
 }
 
 export function Logo({ size = 56 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 48 48" role="img" aria-label="Dial A Waiter">
-      <circle cx="24" cy="24" r="23" fill="#ff5a4e" /><circle cx="24" cy="24" r="20.5" fill="#fff" /><circle cx="24" cy="24" r="18" fill="#0f4c5c" />
-      <path d="M14 15.5V32.5L34 15.5V32.5Z" fill="none" stroke="#fff" strokeWidth="3.2" strokeLinejoin="round" />
-    </svg>
-  )
+  // The master Dial A Waiter logo (from the original 2020 app assets)
+  return <img src="/logo.png" width={size} height={size} alt="Dial A Waiter" style={{ display: 'block' }} />
 }
 
 /** A light illustration of a venue interior, tinted per venue. Replaces heavy photos to save data. */
