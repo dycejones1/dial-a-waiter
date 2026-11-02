@@ -1,0 +1,25 @@
+# Netlify builds the app from this repo on every push to main.
+[build]
+  command = "npm ci && npm run build"
+  publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "20"
+  # Public Supabase settings. The anon key is meant to be public: the database's security rules protect the data.
+  # Never put the service_role key or the database password here.
+  VITE_SUPABASE_URL = "https://gtdutetxvwakbldpxkqc.supabase.co"
+  VITE_SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd0ZHV0ZXR4dndha2JsZHB4a3FjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTM2NDAwMDksImV4cCI6MjEwOTIxNjAwOX0.jbMtTDIoFDlt6kcarZXmZ4oWCzqtS0fqe_Eo2d0yHjY"
+
+# Every page is handled by the app.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Permissions-Policy = "camera=(self), geolocation=(self), microphone=()"

@@ -56,16 +56,18 @@ Every approval and ID decision is recorded in the `admin_actions` table (Table E
 
 ID numbers and documents are in the `staff_private` table and the private `documents` storage bucket. Only your team (via the dashboard) and the person themselves can see them.
 
-## 3. Launch it on the web
+## 3. Launch it on the web (Netlify, connected to GitHub)
 
-The app is a static site, so any static host works. Two easy options:
+`netlify.toml` already holds the build settings and the public Supabase keys, so there is nothing to type in:
 
-**Vercel:** import the repo, framework "Vite", add the two `VITE_SUPABASE_…` environment variables, and deploy. `vercel.json` already sends every page to the app.
-**Netlify:** build command `npm run build`, publish directory `dist`, add the same environment variables. `public/_redirects` handles routing.
+1. Sign up at netlify.com with **Sign in with GitHub**.
+2. **Add new site → Import an existing project → GitHub →** pick `dial-a-waiter` (allow Netlify to see the repo if asked).
+3. Leave the settings it fills in and click **Deploy**. After a minute or two you get a link like `something.netlify.app`. Rename it under **Site configuration → Change site name**.
+4. In Supabase, set **Authentication → URL Configuration → Site URL** to that link.
 
-Then point a domain at it (for example `app.dialawaiter.co.za`), and in Supabase add that address under Authentication → URL Configuration.
+From then on, every change pushed to `main` goes live automatically. Point your own domain (for example `app.dialawaiter.co.za`) at it under **Domain management**.
 
-A live build with no keys shows a setup message instead of quietly running the demo. To deploy a public demo on purpose, set `VITE_DEMO_MODE=true`.
+A build with no Supabase keys shows a setup message instead of quietly running the demo. To deploy a public demo on purpose, set `VITE_DEMO_MODE=true`.
 
 ## 4. Tests
 
