@@ -71,7 +71,7 @@ A live build with no keys shows a setup message instead of quietly running the d
 
 ```bash
 npm test          # phone numbers, SA ID numbers, money and distance helpers
-npm run test:db   # runs the migration on a throwaway local Postgres and checks 47 security rules
+npm run test:db   # runs the migration on a throwaway local Postgres and checks 48 security rules
 npm run typecheck
 ```
 

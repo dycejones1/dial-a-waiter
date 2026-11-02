@@ -116,6 +116,7 @@ select pg_temp.expect((select status from applications where staff_id = auth.uid
 
 -- Anonymous visitors see nothing
 reset role; set role anon;
-select pg_temp.expect((select count(*) from shifts) = 0 and (select count(*) from profiles) = 0, 'anonymous visitors see no shifts or profiles');
+select pg_temp.expect_fail($$select count(*) from shifts$$, 'anonymous visitors cannot read shifts');
+select pg_temp.expect_fail($$select count(*) from profiles$$, 'anonymous visitors cannot read profiles');
 reset role;
 \echo 'ALL DATABASE TESTS PASSED'

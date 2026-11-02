@@ -150,7 +150,7 @@ $$;
 
 -- Great-circle distance in kilometres.
 create or replace function public.distance_km(lat1 float8, lng1 float8, lat2 float8, lng2 float8) returns float8
-language sql immutable as $$
+language sql immutable set search_path = public as $$
   select 6371 * 2 * asin(sqrt(
     power(sin(radians(lat2 - lat1) / 2), 2) +
     cos(radians(lat1)) * cos(radians(lat2)) * power(sin(radians(lng2 - lng1) / 2), 2)
