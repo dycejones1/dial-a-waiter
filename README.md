@@ -13,9 +13,10 @@ This is the first working version of the app for **staff and employers**, built 
 - Applications list with each one's status
 - Account page, dark mode, and installing to the home screen
 - **Employers ("I need staff"):** business or private-event sign-up with the same SMS/email codes, venue name and suburb, a "waiting for approval" welcome, a dashboard of upcoming shifts with applicant counts, a post-a-shift form (handles shifts past midnight and shows the hourly rate), and an applicants screen to shortlist, book or decline people, see whether their ID is checked, mark a shift filled or cancel it
+- **Your team (admin):** venues waiting for approval with the owner's name and number to call, approve or remove approval, ID checks with the ID number (flagged if it fails the SA ID check digit), the document and CV, and verify or "not accepted" with a note the person sees in the app. Every decision is saved in a log: who, what, when and why.
 - A database with security rules: staff only see their own data, employers never see ID numbers, only employer accounts can create venues, and venues must be approved by your team before staff can see their shifts
 
-**Not built yet:** an admin page for your team, availability calendar, earnings and payouts, ratings, notifications (SMS/WhatsApp when someone is booked), finding staff directly, and the iPhone/Android store apps. See "What's next" below.
+**Not built yet:** availability calendar, earnings and payouts, ratings, notifications (SMS/WhatsApp when someone is booked), finding staff directly, and the iPhone/Android store apps. See "What's next" below.
 
 ---
 
@@ -28,12 +29,12 @@ npm install
 npm run dev
 ```
 
-Open the link it prints (usually http://localhost:5173). With no Supabase keys the app runs in **demo mode** with sample shifts, and the login code is always `123456`. Nothing is saved online. Tap **I need work** to try the staff side, or **I need staff** to try the employer side (in demo mode, three example people apply to every shift you post).
+Open the link it prints (usually http://localhost:5173). With no Supabase keys the app runs in **demo mode** with sample shifts, and the login code is always `123456`. Nothing is saved online. Tap **I need work** to try the staff side, or **I need staff** to try the employer side (in demo mode, three example people apply to every shift you post). The small **Dial A Waiter team login (demo)** link opens the team page with sample venues and IDs.
 
 ## 2. Connect Supabase (the real database and logins)
 
 1. Create a free project at [supabase.com](https://supabase.com). Pick a region close to South Africa.
-2. **Create the database.** In the Supabase dashboard open **SQL Editor**, paste the whole of `supabase/migrations/20261102000000_init.sql`, and run it.
+2. **Create the database.** In the Supabase dashboard open **SQL Editor**, run each file in `supabase/migrations/` **in name order**, one at a time (each must finish before the next).
    *(With the Supabase CLI: `supabase link` then `supabase db push`.)*
 3. **Optional sample shifts** for testing: run `supabase/seed.sql` the same way. Only do this on a test project, never production.
 4. **Turn on SMS codes:** Authentication → Sign In / Providers → **Phone**. Enable it and connect an SMS provider. Supabase has built-in options (such as Twilio, Vonage and MessageBird); check the dashboard for the current list. To use a South African provider such as Clickatell or BulkSMS, use Supabase's **Send SMS hook** with a small function that calls their API.
@@ -41,19 +42,17 @@ Open the link it prints (usually http://localhost:5173). With no Supabase keys t
 6. **Add your keys.** Copy `.env.example` to `.env.local` and fill in `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` from Project Settings → API. The anon key is safe to ship in the app; the security rules protect the data. **Never** put the `service_role` key in the app.
 7. Run `npm run dev` again. The demo banner disappears and sign-ups now create real accounts.
 
-### Approving a venue
+### Giving your team admin access
 
-Until the admin page exists, your team approves venues in the SQL editor:
-
-```sql
-update venues set approved = true where name = 'Venue name';
-```
-
-And marks someone's ID as checked:
+Account managers sign up and log in like anyone else. Then the project owner makes them an admin in the SQL editor:
 
 ```sql
-update profiles set rtw_status = 'verified' where phone = '+27833028969';
+update profiles set role = 'admin' where phone = '+27833028969';
 ```
+
+Next time they open the app they land on the team page: **Venues to approve**, **ID checks** and **Approved**. Nobody can make themselves an admin from the app. To remove access, set their role back to `staff`.
+
+Every approval and ID decision is recorded in the `admin_actions` table (Table Editor → admin_actions).
 
 ID numbers and documents are in the `staff_private` table and the private `documents` storage bucket. Only your team (via the dashboard) and the person themselves can see them.
 
@@ -72,7 +71,7 @@ A live build with no keys shows a setup message instead of quietly running the d
 
 ```bash
 npm test          # phone numbers, SA ID numbers, money and distance helpers
-npm run test:db   # runs the migration on a throwaway local Postgres and checks 33 security rules
+npm run test:db   # runs the migration on a throwaway local Postgres and checks 47 security rules
 npm run typecheck
 ```
 
@@ -86,6 +85,7 @@ src/
   screens/join.tsx     sign-up and log-in screens
   screens/staff.tsx    home, jobs, shift detail, applications, account
   screens/employer.tsx employer sign-up, venue setup, dashboard, post a shift, applicants
+  screens/admin.tsx    team page: approve venues, check IDs
   components/ui.tsx    icons, logo, headers, tab bar, venue illustrations
   lib/supabaseApi.ts   talks to Supabase
   lib/demoApi.ts       the same functions with sample data (demo mode)
@@ -108,9 +108,8 @@ supabase/
 
 ## What's next
 
-1. **Admin tools:** a simple page for account managers to approve venues and check IDs.
+1. **Booking notifications:** SMS or WhatsApp when someone is booked, and to the venue when someone applies.
 2. **Find staff:** approved venues browse available people and invite them to a shift.
 3. **Availability calendar and positions matching** (the `availability` table is ready).
-4. **Notifications:** SMS or WhatsApp when someone is shortlisted or booked.
-5. **Ratings and earnings,** then **payouts** through a payments provider.
-6. **App store versions** for iPhone and Android, wrapping this app or rebuilding the screens with React Native and Expo.
+4. **Ratings and earnings,** then **payouts** through a payments provider.
+5. **App store versions** for iPhone and Android, wrapping this app or rebuilding the screens with React Native and Expo.
